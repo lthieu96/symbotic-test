@@ -1,5 +1,5 @@
 /**
- * Telemetry payload sent by each robot every second.
+ * Raw telemetry payload as sent by each robot every second.
  * Matches the documented robot data format in INSTRUCTIONS.md.
  */
 export interface RobotTelemetry {
@@ -19,3 +19,31 @@ export interface RobotTelemetry {
 export interface RobotUserData {
   robotId: string;
 }
+
+export type RobotStatus = 'online' | 'offline' | 'warning';
+
+/**
+ * Live view of a robot, as broadcast to dashboard clients. Extends the raw
+ * telemetry with server-derived presence fields.
+ */
+export interface Robot {
+  robotId: string;
+  batteryPercentage: number;
+  wifiSignalStrength: number;
+  isCharging: boolean;
+  temperature: number;
+  memoryUsage: number;
+  timestamp: string;
+  lastSeen: string;
+  status: RobotStatus;
+}
+
+/**
+ * Discriminated union of every message the backend pushes to the
+ * `/dashboard` WebSocket. Mirrored by the frontend `WebSocketMessage` type.
+ */
+export type WebSocketMessage =
+  | { type: 'initial_robots'; robots: Robot[] }
+  | { type: 'robot_update'; robotId: string; data: Robot }
+  | { type: 'robot_connected'; robotId: string }
+  | { type: 'robot_disconnected'; robotId: string };

@@ -1,15 +1,15 @@
 import mongoose from 'mongoose';
+import { config } from '../config';
 
-const MONGO_URI = process.env.MONGO_URI ?? 'mongodb://localhost:27017/robot-fleet';
-
+/**
+ * Connect to MongoDB. Throws on failure so the caller can decide how to react
+ * (the server aborts startup rather than running without persistence).
+ */
 export const connectDB = async (): Promise<void> => {
-  try {
-    await mongoose.connect(MONGO_URI);
-    console.log('✅ Connected to MongoDB');
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
-  }
+  await mongoose.connect(config.mongoUri);
+  console.log('✅ Connected to MongoDB');
 };
 
-export const models = {};
+export const disconnectDB = async (): Promise<void> => {
+  await mongoose.disconnect();
+};
