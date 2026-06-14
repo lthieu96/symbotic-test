@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import { ConfigProvider } from 'antd'
+import { App, ConfigProvider } from 'antd'
 import AntdRegistry from './lib/AntdRegistry'
 import './globals.css'
 
@@ -28,7 +28,7 @@ export default function RootLayout({
               },
             }}
           >
-            {children}
+            <App>{children}</App>
           </ConfigProvider>
         </AntdRegistry>
       </body>

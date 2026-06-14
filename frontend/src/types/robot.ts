@@ -1,3 +1,5 @@
+export type RobotStatus = 'online' | 'offline' | 'warning'
+
 export interface Robot {
   robotId: string
   batteryPercentage: number
@@ -7,7 +9,7 @@ export interface Robot {
   memoryUsage: number
   timestamp: string
   lastSeen?: string
-  status?: 'online' | 'offline' | 'warning'
+  status?: RobotStatus
 }
 
 export interface RobotData extends Robot {

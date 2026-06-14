@@ -1,95 +1,96 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import type { WebSocketMessage } from '../types/robot'
+
+const BASE_RECONNECT_MS = 1000
+const MAX_RECONNECT_MS = 10000
+
+export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting'
 
 interface UseWebSocketReturn {
+  status: ConnectionStatus
   isConnected: boolean
-  lastMessage: string | null
-  sendMessage: (message: string) => void
   reconnect: () => void
 }
 
-export function useWebSocket(url: string): UseWebSocketReturn {
-  const [isConnected, setIsConnected] = useState(false)
-  const [lastMessage, setLastMessage] = useState<string | null>(null)
-  const ws = useRef<WebSocket | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>()
-
-  const connect = () => {
-    try {
-      // TODO: Implement WebSocket connection logic
-      ws.current = new WebSocket(url)
-
-      ws.current.onopen = () => {
-        console.log('✅ WebSocket connected to:', url)
-        setIsConnected(true)
-
-        // Clear any existing reconnect timeout
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current)
-        }
-      }
-
-      ws.current.onmessage = (event) => {
-        // TODO: Handle incoming messages
-        setLastMessage(event.data)
-      }
-
-      ws.current.onclose = (event) => {
-        console.log('❌ WebSocket disconnected:', event.code, event.reason)
-        setIsConnected(false)
-
-        // TODO: Implement auto-reconnection logic
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('🔄 Attempting to reconnect...')
-          connect()
-        }, 3000)
-      }
-
-      ws.current.onerror = (error) => {
-        console.error('🚨 WebSocket error:', error)
-        setIsConnected(false)
-      }
-
-    } catch (error) {
-      console.error('Failed to connect WebSocket:', error)
-      setIsConnected(false)
-    }
-  }
-
-  const sendMessage = (message: string) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(message)
-    } else {
-      console.warn('WebSocket is not connected')
-    }
-  }
-
-  const reconnect = () => {
-    if (ws.current) {
-      ws.current.close()
-    }
-    connect()
-  }
+/**
+ * Connects to a dashboard WebSocket, parses each frame as a `WebSocketMessage`
+ * and hands it to `onMessage`. Auto-reconnects with exponential backoff (capped)
+ * whenever the socket closes or errors — including when the server is down at
+ * page load — and stops cleanly on unmount.
+ *
+ * `onMessage` is held in a ref so changing the handler identity never tears
+ * down the socket.
+ */
+export function useWebSocket(
+  url: string,
+  onMessage: (message: WebSocketMessage) => void,
+): UseWebSocketReturn {
+  const [status, setStatus] = useState<ConnectionStatus>('connecting')
+  const wsRef = useRef<WebSocket | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const attemptsRef = useRef(0)
+  const teardownRef = useRef(false) // true => intentional unmount, suppress reconnect
+  const onMessageRef = useRef(onMessage)
 
   useEffect(() => {
-    connect()
+    onMessageRef.current = onMessage
+  }, [onMessage])
 
-    // Cleanup on unmount
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
+  const connect = useCallback(() => {
+    // Never stack sockets — a live/connecting one already covers us.
+    const current = wsRef.current
+    if (current && (current.readyState === WebSocket.OPEN || current.readyState === WebSocket.CONNECTING)) {
+      return
+    }
+
+    const socket = new WebSocket(url)
+    wsRef.current = socket
+
+    socket.onopen = () => {
+      console.log('✅ WebSocket connected to:', url)
+      attemptsRef.current = 0
+      setStatus('connected')
+    }
+
+    socket.onmessage = (event) => {
+      try {
+        onMessageRef.current(JSON.parse(event.data) as WebSocketMessage)
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error)
       }
-      if (ws.current) {
-        ws.current.close()
-      }
+    }
+
+    // Funnel errors into the close path so reconnect always runs.
+    socket.onerror = () => socket.close()
+
+    socket.onclose = () => {
+      if (teardownRef.current) return // unmounting — don't reconnect
+      setStatus('reconnecting')
+      const delay = Math.min(BASE_RECONNECT_MS * 2 ** attemptsRef.current, MAX_RECONNECT_MS)
+      attemptsRef.current += 1
+      console.log(`🔄 Reconnecting in ${delay}ms...`)
+      timerRef.current = setTimeout(connect, delay)
     }
   }, [url])
 
-  return {
-    isConnected,
-    lastMessage,
-    sendMessage,
-    reconnect
-  }
+  const reconnect = useCallback(() => {
+    attemptsRef.current = 0
+    if (timerRef.current) clearTimeout(timerRef.current)
+    wsRef.current?.close()
+    connect()
+  }, [connect])
+
+  useEffect(() => {
+    teardownRef.current = false
+    connect()
+    return () => {
+      teardownRef.current = true
+      if (timerRef.current) clearTimeout(timerRef.current)
+      wsRef.current?.close()
+    }
+  }, [connect])
+
+  return { status, isConnected: status === 'connected', reconnect }
 }
