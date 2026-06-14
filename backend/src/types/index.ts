@@ -47,3 +47,12 @@ export type WebSocketMessage =
   | { type: 'robot_update'; robotId: string; data: Robot }
   | { type: 'robot_connected'; robotId: string }
   | { type: 'robot_disconnected'; robotId: string };
+
+/** A single historical telemetry sample returned by the history API (for charts). */
+export interface TelemetryPoint {
+  timestamp: string; // ISO-8601
+  batteryPercentage: number;
+  wifiSignalStrength: number;
+  temperature: number;
+  memoryUsage: number;
+}

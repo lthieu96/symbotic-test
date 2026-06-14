@@ -6,4 +6,7 @@ export const CRITICAL_MINUTES = 5;
 export const CRITICAL_MS = CRITICAL_MINUTES * 60 * 1000;
 
 /** Dashboard WebSocket endpoint. WEBSOCKET_URL is injected by next.config.js. */
-export const WS_URL = `${process.env.WEBSOCKET_URL ?? 'ws://localhost:8080'}/dashboard`;
+export const WS_URL = `${process.env.WEBSOCKET_URL ?? 'ws://localhost:8080'}/dashboard`
+
+/** History window shown on the robot detail charts. */
+export const HISTORY_MS = 6 * 60 * 60 * 1000 // 6 hours;
