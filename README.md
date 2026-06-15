@@ -4,6 +4,10 @@ Real-time monitoring for a fleet of robots: live telemetry, battery alerting, an
 6-hour historical charts. Built with **Node.js + uWebSockets.js**, **Next.js +
 Ant Design**, **MongoDB (time-series)**, and **Redis** for cross-worker scaling.
 
+## 🎥 Video demo
+
+▶️ **[Watch the demo](https://1916iuqinl.ufs.sh/f/80nP6vklQJwGOkMbMbtsIlQMxKfcUwzbmrFSTBXYL8oNtiCe)**
+
 ```
 ┌──────────────┐   ws /robots    ┌────────────────────────┐   ws /dashboard   ┌──────────────┐
 │  Robot       │ ───telemetry──▶ │   Backend (uWS)        │ ──robot_update──▶ │  Dashboard   │
