@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import WebSocket from 'ws';
 import type { RobotTelemetry } from '../types';
 
@@ -164,10 +165,11 @@ class RobotSimulator {
 
 function createRobotFleet(count = 5): RobotSimulator[] {
   const robots: RobotSimulator[] = [];
+  const serverUrl = process.env.SERVER_URL ?? 'ws://localhost:8080';
 
   for (let i = 1; i <= count; i++) {
     const robotId = `${i.toString().padStart(5, '0')}`;
-    const robot = new RobotSimulator(robotId);
+    const robot = new RobotSimulator(robotId, serverUrl);
     robots.push(robot);
 
     // Stagger connections to avoid overwhelming the server
@@ -187,12 +189,13 @@ function shutdownFleet(robots: RobotSimulator[]): void {
 
 // Start the simulation when run directly
 if (require.main === module) {
+  const count = Number(process.env.ROBOT_COUNT) || 5;
   console.log('🚀 Starting Robot Fleet Simulator...');
-  console.log('📡 Connecting to server at ws://localhost:8080');
-  console.log('⏱️  Robots will send data every 1 second');
+  console.log(`📡 Connecting to server at ${process.env.SERVER_URL ?? 'ws://localhost:8080'}`);
+  console.log(`⏱️  ${count} robots will send data every 1 second`);
   console.log('Press Ctrl+C to stop\n');
 
-  const robots = createRobotFleet(5); // Create 5 robots by default
+  const robots = createRobotFleet(count);
 
   process.on('SIGINT', () => shutdownFleet(robots));
   process.on('SIGTERM', () => shutdownFleet(robots));

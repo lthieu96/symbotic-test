@@ -2,6 +2,7 @@
   "name": "robot-fleet-backend",
   "version": "1.0.0",
   "description": "Robot Fleet Management Backend with uWebSockets.js",
+  "packageManager": "pnpm@10.30.3",
   "main": "dist/app.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -9,6 +10,8 @@
     "dev": "tsx watch src/app.ts",
     "simulator": "tsx src/simulator/robot-simulator.ts",
     "simulator:prod": "node dist/simulator/robot-simulator.js",
+    "cluster": "node dist/cluster.js",
+    "cluster:dev": "tsx src/cluster.ts",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch"
@@ -17,6 +20,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "ioredis": "^5.11.1",
     "mongodb": "^6.0.0",
     "mongoose": "^8.14.2",
     "uWebSockets.js": "uNetworking/uWebSockets.js#v20.67.0",

@@ -1,0 +1,79 @@
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    # Not exposed to the host: the backend reaches it via the internal network
+    # (mongodb://mongodb:27017), and not mapping it avoids clashing with a local
+    # MongoDB on 27017. To inspect from the host, add e.g. `ports: ["27018:27017"]`
+    # or run `docker compose exec mongodb mongosh`.
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    image: robot-fleet-backend
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      MONGO_URI: mongodb://mongodb:27017/robot-fleet
+      REDIS_URL: redis://redis:6379
+      WORKERS: "0" # 0 → use the container's CPU count
+    ports:
+      - "8080:8080"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Both baked at build: WEBSOCKET_URL is inlined into the browser bundle;
+        # BACKEND_INTERNAL_URL is baked into Next's rewrite manifest (server-side
+        # proxy target → the backend service on the internal network).
+        WEBSOCKET_URL: ws://localhost:8080
+        BACKEND_INTERNAL_URL: http://backend:8080
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  simulator:
+    image: robot-fleet-backend # reuse the backend image, different command
+    restart: unless-stopped
+    command: ["node", "dist/simulator/robot-simulator.js"]
+    environment:
+      SERVER_URL: ws://backend:8080
+      ROBOT_COUNT: "5"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  mongo-data:

@@ -14,4 +14,13 @@ export const config = {
 
   /** uWS pub/sub topic that dashboard clients subscribe to for live fleet updates. */
   dashboardTopic: 'fleet',
+
+  /**
+   * Redis connection URL for the cross-worker event bus. When empty (single
+   * process / `npm run dev`) an in-process bus is used instead.
+   */
+  redisUrl: process.env.REDIS_URL ?? '',
+
+  /** Number of cluster workers. 0 → use the available CPU count. */
+  workers: Number(process.env.WORKERS) || 0,
 } as const;

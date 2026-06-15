@@ -1,27 +1,23 @@
 import type { WebSocketBehavior } from 'uWebSockets.js';
 import qs from 'node:querystring';
 import type { RobotUserData, Robot } from '../types';
-import type { FleetState } from '../services/fleet-state';
-import type { Broadcaster } from '../services/broadcaster';
+import type { EventBus } from '../services/event-bus';
 import { saveTelemetry } from '../services/telemetry-store';
 import { parseTelemetry } from '../validation/telemetry';
 
 const UPGRADE_DELAY_MS = 300;
 
 interface RobotHandlerDeps {
-  fleet: FleetState;
-  broadcaster: Broadcaster;
+  bus: EventBus;
 }
 
 /**
  * WebSocket behaviour for the `/robots` endpoint — the ingest side.
- * Per message it: parses JSON → validates → updates fleet state →
- * broadcasts to dashboards → persists (fire-and-forget).
+ * Per message it: parses JSON → validates → persists (fire-and-forget) →
+ * publishes a fleet event to the bus. State updates and dashboard broadcasts
+ * happen on the consumer side, so they reach every worker.
  */
-export function createRobotHandler({
-  fleet,
-  broadcaster,
-}: RobotHandlerDeps): WebSocketBehavior<RobotUserData> {
+export function createRobotHandler({ bus }: RobotHandlerDeps): WebSocketBehavior<RobotUserData> {
   return {
     maxPayloadLength: 64 * 1024,
     maxBackpressure: 64 * 1024,
@@ -55,7 +51,7 @@ export function createRobotHandler({
     open: (ws) => {
       const { robotId } = ws.getUserData();
       console.log(`🤖 Robot ${robotId} connected`);
-      broadcaster.robotConnected(robotId);
+      bus.publish({ type: 'connected', robotId });
     },
 
     message: (ws, message) => {
@@ -92,20 +88,18 @@ export function createRobotHandler({
         status: 'online',
       };
 
-      fleet.upsert(robot);
-      broadcaster.robotUpdate(robot);
-
       // Persist without blocking the broadcast path.
       saveTelemetry(robot).catch((err) =>
         console.error(`❌ Failed to store telemetry for ${robotId}:`, err),
       );
+
+      bus.publish({ type: 'update', robot });
     },
 
     close: (ws) => {
       const { robotId } = ws.getUserData();
       console.log(`🔌 Robot ${robotId} disconnected`);
-      fleet.remove(robotId);
-      broadcaster.robotDisconnected(robotId);
+      bus.publish({ type: 'disconnected', robotId });
     },
   };
 }

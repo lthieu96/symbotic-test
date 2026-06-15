@@ -48,6 +48,15 @@ export type WebSocketMessage =
   | { type: 'robot_connected'; robotId: string }
   | { type: 'robot_disconnected'; robotId: string };
 
+/**
+ * Internal fleet event carried over the event bus (in-process or Redis) between
+ * the ingest side and every worker's broadcast/state side.
+ */
+export type FleetEvent =
+  | { type: 'connected'; robotId: string }
+  | { type: 'update'; robot: Robot }
+  | { type: 'disconnected'; robotId: string };
+
 /** A single historical telemetry sample returned by the history API (for charts). */
 export interface TelemetryPoint {
   timestamp: string; // ISO-8601
