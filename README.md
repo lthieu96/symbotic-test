@@ -8,18 +8,28 @@ Ant Design**, **MongoDB (time-series)**, and **Redis** for cross-worker scaling.
 
 ▶️ **[Watch the demo](https://1916iuqinl.ufs.sh/f/80nP6vklQJwGOkMbMbtsIlQMxKfcUwzbmrFSTBXYL8oNtiCe)**
 
-```
-┌──────────────┐   ws /robots    ┌────────────────────────┐   ws /dashboard   ┌──────────────┐
-│  Robot       │ ───telemetry──▶ │   Backend (uWS)        │ ──robot_update──▶ │  Dashboard   │
-│  simulator   │   (1 Hz each)   │  validate → store →    │   (pub/sub)       │  (Next.js)   │
-└──────────────┘                 │  publish to event bus  │                   └──────────────┘
-                                  └───────┬────────┬───────┘                          │
-                                          │        │                          GET /api/.../history
-                                          ▼        ▼                                  │
-                                   ┌──────────┐ ┌────────┐                            ▼
-                                   │ MongoDB  │ │ Redis  │◀── event bus (clustered) ──┘
-                                   │ (TS coll)│ │ pub/sub│
-                                   └──────────┘ └────────┘
+```mermaid
+flowchart LR
+    Sim["🤖 Robot simulator<br/>(N robots · 1 Hz)"]
+    Dash["🖥️ Dashboard<br/>(Next.js)"]
+
+    subgraph Backend["Backend — uWebSockets.js (clustered)"]
+        direction TB
+        Robots["ws /robots<br/>validate → store → publish"]
+        DashWS["ws /dashboard<br/>consume → broadcast"]
+        API["GET /api/robots/:id/history"]
+    end
+
+    Mongo[("MongoDB<br/>time-series")]
+    Redis[("Redis<br/>pub/sub bus")]
+
+    Sim -->|telemetry| Robots
+    Robots -->|store| Mongo
+    Robots -->|publish event| Redis
+    Redis -->|fan-out to every worker| DashWS
+    DashWS -->|live updates| Dash
+    Dash -->|fetch 6h history| API
+    API -->|query| Mongo
 ```
 
 ---
